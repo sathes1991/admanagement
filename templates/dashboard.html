@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light py-4">
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Welcome, {{ session['username'] }}</h2>
+        <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- 🔍 Top-right Search Button -->
+    <div class="d-flex justify-content-end mb-3">
+        <a href="{{ url_for('search') }}" class="btn btn-outline-primary">
+            🔍 Search User/Group Mapping
+        </a>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Actions</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><a href="{{ url_for('list_users') }}">👤 View AD Users</a></li>
+                        <li class="list-group-item"><a href="{{ url_for('list_groups') }}">👥 View AD Groups</a></li>
+                        <li class="list-group-item"><a href="{{ url_for('create_user') }}">➕ Create AD User</a></li>
+                        <li class="list-group-item"><a href="{{ url_for('create_group') }}">➕ Create AD Group</a></li>
+                        <li class="list-group-item"><a href="{{ url_for('group_members') }}">📋 View Group Membership Summary</a></li>
+                        <li class="list-group-item"><a href="{{ url_for('add_to_group') }}">🔁 Add User to Group</a></li>
+                        <li class="list-group-item"><a href="{{ url_for('remove_from_group') }}">❌ Remove User from Group</a></li>
+                        <li class="list-group-item"><a href="{{ url_for('list_computers') }}">💻 View AD Computers</a></li> <!-- 👈 Add this -->
+                        <!-- Removed search from here -->
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Optional additional column -->
+        <!--
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Coming Next</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">🔧 Create AD User (next step)</li>
+                        <li class="list-group-item">📂 Add user to AD group</li>
+                        <li class="list-group-item">🏷️ Place in specific OU</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        -->
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

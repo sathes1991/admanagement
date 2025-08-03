@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  flask-ad-manager:
+    build: .
+    container_name: flask-ad-manager
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    restart: unless-stopped
