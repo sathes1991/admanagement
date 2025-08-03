@@ -1,59 +1,145 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>AD Groups</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light py-4">
+{% extends "base.html" %}
 
-<div class="container">
+{% block title %}Groups - AD Manager{% endblock %}
+
+{% block extra_head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.bootstrap5.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Active Directory Groups</h2>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">⬅ Back to Dashboard</a>
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-users-cog"></i> AD Groups
+        </h1>
+        <a href="{{ url_for('create_group') }}" class="btn btn-modern btn-modern-primary">
+            <i class="fas fa-plus-circle"></i> Create New Group
+        </a>
     </div>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h5 class="card-title">Group List (OU=LinuxGroups)</h5>
-            <div class="table-responsive">
-                <table class="table table-striped table-hover align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Group Name</th>
-                            <th>Description</th>
-                            <th>GID Number</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for group in groups %}
-                        <tr>
-                            <td>{{ group.name }}</td>
-                            <td>{{ group.description }}</td>
-                            <td>{{ group.gid }}</td>
-                        </tr>
-                        {% endfor %}
-                        {% if groups|length == 0 %}
-                        <tr><td colspan="3" class="text-center text-muted">No groups found.</td></tr>
+    
+    <div class="table-container">
+        <table id="groupsTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Group Name</th>
+                    <th>Description</th>
+                    <th>GID Number</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in groups %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="icon-box me-2" style="width: 32px; height: 32px;">
+                                <i class="fas fa-users text-success"></i>
+                            </div>
+                            <strong>{{ group.name }}</strong>
+                        </div>
+                    </td>
+                    <td>{{ group.description or '-' }}</td>
+                    <td>
+                        {% if group.gid %}
+                            <span class="badge bg-light text-dark">{{ group.gid }}</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
                         {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                    </td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('group_members') }}" 
+                               class="btn btn-sm btn-outline-primary" 
+                               title="View Members">
+                                <i class="fas fa-user-friends"></i>
+                            </a>
+                            <a href="{{ url_for('add_to_group') }}" 
+                               class="btn btn-sm btn-outline-success" 
+                               title="Add Members">
+                                <i class="fas fa-user-plus"></i>
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger" 
+                                    title="Delete Group"
+                                    onclick="return confirm('Are you sure you want to delete this group?');" disabled>
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+<style>
+.icon-box {
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('#groupsTable').DataTable({
+        pageLength: 25,
+        responsive: true,
+        dom: 'Bfrtip',
+        buttons: [
+            {
+                extend: 'excel',
+                text: '<i class="fas fa-file-excel"></i> Excel',
+                className: 'btn btn-success btn-sm',
+                exportOptions: {
+                    columns: [0, 1, 2]
+                }
+            },
+            {
+                extend: 'csv',
+                text: '<i class="fas fa-file-csv"></i> CSV',
+                className: 'btn btn-info btn-sm',
+                exportOptions: {
+                    columns: [0, 1, 2]
+                }
+            },
+            {
+                extend: 'print',
+                text: '<i class="fas fa-print"></i> Print',
+                className: 'btn btn-secondary btn-sm',
+                exportOptions: {
+                    columns: [0, 1, 2]
+                }
+            }
+        ],
+        language: {
+            search: "Search groups:",
+            lengthMenu: "Show _MENU_ groups per page",
+            info: "Showing _START_ to _END_ of _TOTAL_ groups",
+            paginate: {
+                first: "First",
+                last: "Last",
+                next: "Next",
+                previous: "Previous"
+            }
+        },
+        order: [[0, 'asc']]
+    });
+});
+</script>
+{% endblock %}

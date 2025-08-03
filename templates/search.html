@@ -1,67 +1,224 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Search AD</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+{% extends "base.html" %}
 
-<div class="container mt-5">
-    <div class="card shadow">
-        <div class="card-header bg-info text-white">
-            <h4 class="mb-0">Search AD: User ↔ Group Mapping</h4>
-        </div>
-        <div class="card-body">
+{% block title %}Search - AD Manager{% endblock %}
 
-            <form method="POST" class="row g-3 mb-4">
-                <div class="col-md-4">
-                    <select name="search_type" class="form-select" required>
-                        <option value="">-- Select Search Type --</option>
-                        <option value="user">Search by User</option>
-                        <option value="group">Search by Group</option>
-                    </select>
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="dashboard-card">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="card-icon me-3" style="background: rgba(23, 162, 184, 0.1); color: var(--info-color);">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div>
+                        <h1 class="h3 mb-0">Search Active Directory</h1>
+                        <p class="text-muted mb-0">Find user group memberships or group members</p>
+                    </div>
                 </div>
-                <div class="col-md-5">
-                    <input type="text" name="keyword" class="form-control" placeholder="Enter username or group name" required>
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-primary w-100">Search</button>
-                </div>
-            </form>
 
-            {% if result %}
-                {% if result.type == 'user' %}
-                    <h5 class="text-success">User <strong>{{ result.keyword }}</strong> is in groups:</h5>
-                    <ul class="list-group">
-                        {% for group in result.groups %}
-                            <li class="list-group-item">{{ group }}</li>
-                        {% endfor %}
-                        {% if result.groups|length == 0 %}
-                            <li class="list-group-item text-muted">No groups found</li>
+                <form method="POST" class="search-form">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label for="search_type" class="form-label">
+                                <i class="fas fa-filter"></i> Search Type
+                            </label>
+                            <select name="search_type" id="search_type" class="form-select" required>
+                                <option value="">Select search type...</option>
+                                <option value="user" {% if result and result.type == 'user' %}selected{% endif %}>
+                                    <i class="fas fa-user"></i> Find Groups by User
+                                </option>
+                                <option value="group" {% if result and result.type == 'group' %}selected{% endif %}>
+                                    <i class="fas fa-users"></i> Find Users by Group
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label for="keyword" class="form-label">
+                                <i class="fas fa-keyboard"></i> Search Term
+                            </label>
+                            <input type="text" name="keyword" id="keyword" class="form-control" 
+                                   placeholder="Enter username or group name" 
+                                   value="{{ result.keyword if result else '' }}" required>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-modern btn-modern-primary w-100">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                {% if result %}
+                <div class="search-results">
+                    {% if result.type == 'user' %}
+                        <div class="result-header mb-4">
+                            <div class="d-flex align-items-center">
+                                <div class="user-avatar me-3" style="width: 48px; height: 48px;">
+                                    {{ result.keyword[0].upper() }}
+                                </div>
+                                <div>
+                                    <h5 class="mb-0">User: <strong>{{ result.keyword }}</strong></h5>
+                                    <p class="text-muted mb-0">Member of {{ result.groups|length }} group{{ 's' if result.groups|length != 1 else '' }}</p>
+                                </div>
+                                <div class="ms-auto">
+                                    <a href="{{ url_for('user_details', username=result.keyword) }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-eye"></i> View User
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if result.groups %}
+                            <div class="row g-3">
+                                {% for group in result.groups %}
+                                <div class="col-md-6">
+                                    <div class="group-card p-3 border rounded">
+                                        <div class="d-flex align-items-center">
+                                            <div class="icon-box me-3" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-users text-success"></i>
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0">{{ group }}</h6>
+                                                <small class="text-muted">Active Directory Group</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning d-flex align-items-center" role="alert">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                This user is not a member of any groups.
+                            </div>
                         {% endif %}
-                    </ul>
-                {% elif result.type == 'group' %}
-                    <h5 class="text-success">Group <strong>{{ result.keyword }}</strong> has members:</h5>
-                    <ul class="list-group">
-                        {% for user in result.users %}
-                            <li class="list-group-item">{{ user }}</li>
-                        {% endfor %}
-                        {% if result.users|length == 0 %}
-                            <li class="list-group-item text-muted">No members found</li>
+
+                    {% elif result.type == 'group' %}
+                        <div class="result-header mb-4">
+                            <div class="d-flex align-items-center">
+                                <div class="icon-box me-3" style="width: 48px; height: 48px;">
+                                    <i class="fas fa-users text-success"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0">Group: <strong>{{ result.keyword }}</strong></h5>
+                                    <p class="text-muted mb-0">Contains {{ result.users|length }} member{{ 's' if result.users|length != 1 else '' }}</p>
+                                </div>
+                                <div class="ms-auto">
+                                    <a href="{{ url_for('add_to_group') }}" class="btn btn-outline-success">
+                                        <i class="fas fa-user-plus"></i> Add Members
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% if result.users %}
+                            <div class="row g-3">
+                                {% for user in result.users %}
+                                <div class="col-md-6">
+                                    <div class="member-card p-3 border rounded">
+                                        <div class="d-flex align-items-center">
+                                            <div class="user-avatar me-3" style="width: 40px; height: 40px; font-size: 16px;">
+                                                {{ user[0].upper() }}
+                                            </div>
+                                            <div>
+                                                <h6 class="mb-0">{{ user }}</h6>
+                                                <small class="text-muted">Active Directory User</small>
+                                            </div>
+                                            <div class="ms-auto">
+                                                <a href="{{ url_for('user_details', username=user) }}" 
+                                                   class="btn btn-sm btn-outline-primary" 
+                                                   title="View User">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-warning d-flex align-items-center" role="alert">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                This group has no members.
+                            </div>
                         {% endif %}
-                    </ul>
+                    {% endif %}
+                </div>
+                {% else %}
+                    {% if request.method == 'POST' %}
+                        <div class="alert alert-info d-flex align-items-center" role="alert">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No results found. Please check your search criteria and try again.
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <div class="icon-box mx-auto mb-3" style="width: 80px; height: 80px;">
+                                <i class="fas fa-search text-muted" style="font-size: 32px;"></i>
+                            </div>
+                            <h5 class="text-muted">Ready to Search</h5>
+                            <p class="text-muted">Select a search type and enter a keyword to begin</p>
+                        </div>
+                    {% endif %}
                 {% endif %}
-            {% endif %}
-
-            <div class="mt-4">
-                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
             </div>
-
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+<style>
+.search-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+}
+
+.result-header {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.group-card, .member-card {
+    background: #fff;
+    transition: all 0.3s;
+}
+
+.group-card:hover, .member-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.icon-box {
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Auto-focus on search term when search type is selected
+document.getElementById('search_type').addEventListener('change', function() {
+    if (this.value) {
+        document.getElementById('keyword').focus();
+    }
+});
+
+// Update placeholder based on search type
+document.getElementById('search_type').addEventListener('change', function() {
+    const keywordInput = document.getElementById('keyword');
+    if (this.value === 'user') {
+        keywordInput.placeholder = 'Enter username to search';
+    } else if (this.value === 'group') {
+        keywordInput.placeholder = 'Enter group name to search';
+    } else {
+        keywordInput.placeholder = 'Enter username or group name';
+    }
+});
+</script>
+{% endblock %}

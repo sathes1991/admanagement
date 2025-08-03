@@ -1,74 +1,185 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light py-4">
+{% extends "base.html" %}
 
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Welcome, {{ session['username'] }}</h2>
-        <a href="{{ url_for('logout') }}" class="btn btn-danger">Logout</a>
-    </div>
+{% block title %}Dashboard - AD Manager{% endblock %}
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
-    <!-- 🔍 Top-right Search Button -->
-    <div class="d-flex justify-content-end mb-3">
-        <a href="{{ url_for('search') }}" class="btn btn-outline-primary">
-            🔍 Search User/Group Mapping
-        </a>
-    </div>
-
+{% block content %}
+<div class="container-fluid">
+    <h1 class="h3 mb-4 text-gray-800">Dashboard</h1>
+    
+    <!-- Statistics Cards Row -->
     <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Actions</h5>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item"><a href="{{ url_for('list_users') }}">👤 View AD Users</a></li>
-                        <li class="list-group-item"><a href="{{ url_for('list_groups') }}">👥 View AD Groups</a></li>
-                        <li class="list-group-item"><a href="{{ url_for('create_user') }}">➕ Create AD User</a></li>
-                        <li class="list-group-item"><a href="{{ url_for('create_group') }}">➕ Create AD Group</a></li>
-                        <li class="list-group-item"><a href="{{ url_for('group_members') }}">📋 View Group Membership Summary</a></li>
-                        <li class="list-group-item"><a href="{{ url_for('add_to_group') }}">🔁 Add User to Group</a></li>
-                        <li class="list-group-item"><a href="{{ url_for('remove_from_group') }}">❌ Remove User from Group</a></li>
-                        <li class="list-group-item"><a href="{{ url_for('list_computers') }}">💻 View AD Computers</a></li> <!-- 👈 Add this -->
-                        <!-- Removed search from here -->
-                    </ul>
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="dashboard-card primary">
+                <div class="card-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <h4>Total Users</h4>
+                <h2>{{ stats.total_users }}</h2>
+                <div class="mt-3">
+                    <small class="text-success">
+                        <i class="fas fa-check-circle"></i> {{ stats.enabled_users }} Enabled
+                    </small>
+                    <small class="text-danger ms-3">
+                        <i class="fas fa-times-circle"></i> {{ stats.disabled_users }} Disabled
+                    </small>
                 </div>
             </div>
         </div>
-
-        <!-- Optional additional column -->
-        <!--
-        <div class="col-md-6">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title">Coming Next</h5>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item">🔧 Create AD User (next step)</li>
-                        <li class="list-group-item">📂 Add user to AD group</li>
-                        <li class="list-group-item">🏷️ Place in specific OU</li>
-                    </ul>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="dashboard-card success">
+                <div class="card-icon">
+                    <i class="fas fa-users-cog"></i>
+                </div>
+                <h4>Total Groups</h4>
+                <h2>{{ stats.total_groups }}</h2>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="dashboard-card warning">
+                <div class="card-icon">
+                    <i class="fas fa-desktop"></i>
+                </div>
+                <h4>Total Computers</h4>
+                <h2>{{ stats.total_computers }}</h2>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="dashboard-card info">
+                <div class="card-icon">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <h4>Locked Users</h4>
+                <h2>{{ stats.locked_users }}</h2>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-xl-8 col-lg-7">
+            <div class="chart-container">
+                <h5 class="mb-3">User Account Status</h5>
+                <canvas id="userStatusChart" style="max-height: 300px;"></canvas>
+            </div>
+        </div>
+        
+        <div class="col-xl-4 col-lg-5">
+            <div class="chart-container">
+                <h5 class="mb-3">Account Distribution</h5>
+                <div style="max-height: 300px; position: relative;">
+                    <canvas id="accountPieChart"></canvas>
                 </div>
             </div>
         </div>
-        -->
+    </div>
+    
+    <!-- Quick Actions Section -->
+    <div class="dashboard-card">
+        <h5 class="mb-3">Quick Actions</h5>
+        <div class="quick-actions">
+            <a href="{{ url_for('create_user') }}" class="quick-action-btn">
+                <i class="fas fa-user-plus"></i>
+                <span>Create User</span>
+            </a>
+            <a href="{{ url_for('create_group') }}" class="quick-action-btn">
+                <i class="fas fa-plus-circle"></i>
+                <span>Create Group</span>
+            </a>
+            <a href="{{ url_for('add_to_group') }}" class="quick-action-btn">
+                <i class="fas fa-user-friends"></i>
+                <span>Add to Group</span>
+            </a>
+            <a href="{{ url_for('list_users') }}" class="quick-action-btn">
+                <i class="fas fa-list"></i>
+                <span>View Users</span>
+            </a>
+            <a href="{{ url_for('list_groups') }}" class="quick-action-btn">
+                <i class="fas fa-users-cog"></i>
+                <span>View Groups</span>
+            </a>
+            <a href="{{ url_for('search') }}" class="quick-action-btn">
+                <i class="fas fa-search"></i>
+                <span>Search</span>
+            </a>
+        </div>
     </div>
 </div>
+{% endblock %}
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+{% block extra_scripts %}
+<script>
+    // User Status Bar Chart
+    const ctx1 = document.getElementById('userStatusChart').getContext('2d');
+    const userStatusChart = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: ['Enabled Users', 'Disabled Users', 'Locked Users'],
+            datasets: [{
+                label: 'Count',
+                data: [{{ stats.enabled_users }}, {{ stats.disabled_users }}, {{ stats.locked_users }}],
+                backgroundColor: [
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(220, 53, 69, 0.8)',
+                    'rgba(255, 193, 7, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(40, 167, 69, 1)',
+                    'rgba(220, 53, 69, 1)',
+                    'rgba(255, 193, 7, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
+        }
+    });
+    
+    // Account Distribution Pie Chart
+    const ctx2 = document.getElementById('accountPieChart').getContext('2d');
+    const accountPieChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: ['Users', 'Groups', 'Computers'],
+            datasets: [{
+                label: 'Count',
+                data: [{{ stats.total_users }}, {{ stats.total_groups }}, {{ stats.total_computers }}],
+                backgroundColor: [
+                    'rgba(0, 102, 204, 0.8)',
+                    'rgba(40, 167, 69, 0.8)',
+                    'rgba(255, 193, 7, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(0, 102, 204, 1)',
+                    'rgba(40, 167, 69, 1)',
+                    'rgba(255, 193, 7, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

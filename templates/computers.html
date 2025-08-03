@@ -1,55 +1,147 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>AD Computers</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light py-4">
+{% extends "base.html" %}
 
-<div class="container">
+{% block title %}Computers - AD Manager{% endblock %}
+
+{% block extra_head %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>🖥️ Active Directory Computers</h2>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">← Back to Dashboard</a>
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-desktop"></i> AD Computers
+        </h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" onclick="location.reload();">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
     </div>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
-    {% if computers %}
-    <table class="table table-striped table-bordered">
-        <thead class="table-dark">
-            <tr>
-                <th>Computer Name</th>
-                <th>Hostname</th>
-                <th>Operating System</th>
-                <th>Last Logon</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for comp in computers %}
-            <tr>
-                <td>{{ comp.name }}</td>
-                <td>{{ comp.hostname }}</td>
-                <td>{{ comp.os }}</td>
-                <td>{{ comp.last_logon }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="alert alert-info">No computer accounts found in AD.</div>
-    {% endif %}
+    
+    <div class="table-container">
+        {% if computers %}
+        <table id="computersTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Computer Name</th>
+                    <th>DNS Hostname</th>
+                    <th>Operating System</th>
+                    <th>Last Logon</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comp in computers %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="icon-box me-2" style="width: 32px; height: 32px;">
+                                <i class="fas fa-desktop text-primary"></i>
+                            </div>
+                            <strong>{{ comp.name }}</strong>
+                        </div>
+                    </td>
+                    <td>
+                        {% if comp.hostname %}
+                            <code>{{ comp.hostname }}</code>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if comp.os %}
+                            <div class="d-flex align-items-center">
+                                {% if 'Windows' in comp.os %}
+                                    <i class="fab fa-windows me-2 text-info"></i>
+                                {% elif 'Linux' in comp.os %}
+                                    <i class="fab fa-linux me-2 text-warning"></i>
+                                {% else %}
+                                    <i class="fas fa-server me-2 text-secondary"></i>
+                                {% endif %}
+                                {{ comp.os }}
+                            </div>
+                        {% else %}
+                            <span class="text-muted">Unknown</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if comp.last_logon and comp.last_logon != '' %}
+                            <small>{{ comp.last_logon }}</small>
+                        {% else %}
+                            <span class="text-muted">Never</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if comp.last_logon %}
+                            <span class="badge bg-success-soft text-success">
+                                <i class="fas fa-check-circle"></i> Active
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary-soft text-secondary">
+                                <i class="fas fa-question-circle"></i> Unknown
+                            </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="text-center py-5">
+            <div class="icon-box mx-auto mb-3" style="width: 64px; height: 64px;">
+                <i class="fas fa-desktop text-muted" style="font-size: 24px;"></i>
+            </div>
+            <h5 class="text-muted">No Computers Found</h5>
+            <p class="text-muted">No computer accounts were found in Active Directory.</p>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+<style>
+.icon-box {
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bg-success-soft {
+    background-color: rgba(40, 167, 69, 0.1) !important;
+}
+
+.bg-secondary-soft {
+    background-color: rgba(108, 117, 125, 0.1) !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- DataTables JS -->
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('#computersTable').DataTable({
+        pageLength: 25,
+        responsive: true,
+        language: {
+            search: "Search computers:",
+            lengthMenu: "Show _MENU_ computers per page",
+            info: "Showing _START_ to _END_ of _TOTAL_ computers",
+            paginate: {
+                first: "First",
+                last: "Last",
+                next: "Next",
+                previous: "Previous"
+            }
+        },
+        order: [[0, 'asc']]
+    });
+});
+</script>
+{% endblock %}

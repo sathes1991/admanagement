@@ -34,7 +34,63 @@ def login():
 def dashboard():
     if 'username' not in session:
         return redirect(url_for('login'))
-    return render_template('dashboard.html')
+    
+    # Get statistics for dashboard
+    stats = get_ad_statistics()
+    return render_template('dashboard.html', stats=stats)
+
+
+def get_ad_statistics():
+    """Get AD statistics for dashboard display"""
+    stats = {
+        'total_users': 0,
+        'total_groups': 0,
+        'total_computers': 0,
+        'enabled_users': 0,
+        'disabled_users': 0,
+        'locked_users': 0
+    }
+    
+    try:
+        server = Server(Config.LDAP_SERVER, get_info=ALL)
+        conn = Connection(server,
+                          user=f"{Config.DOMAIN}\\{session['username']}",
+                          password=session.get('password'),
+                          authentication=NTLM,
+                          auto_bind=True)
+        
+        # Count users
+        conn.search('OU=LinuxUsers,DC=vvs,DC=com', '(objectClass=user)', SUBTREE,
+                    attributes=['userAccountControl', 'lockoutTime'])
+        
+        stats['total_users'] = len(conn.entries)
+        
+        for entry in conn.entries:
+            uac = int(entry.userAccountControl.value) if 'userAccountControl' in entry else 512
+            lockout_time = int(entry.lockoutTime.value.timestamp()) if 'lockoutTime' in entry and entry.lockoutTime.value else 0
+            
+            if not (uac & 2):  # Account is enabled
+                stats['enabled_users'] += 1
+            else:
+                stats['disabled_users'] += 1
+                
+            if lockout_time > 0:
+                stats['locked_users'] += 1
+        
+        # Count groups
+        conn.search('OU=LinuxGroups,DC=vvs,DC=com', '(objectClass=group)', SUBTREE)
+        stats['total_groups'] = len(conn.entries)
+        
+        # Count computers
+        conn.search(Config.BASE_DN, '(objectClass=computer)', attributes=['cn'])
+        stats['total_computers'] = len(conn.entries)
+        
+        conn.unbind()
+        
+    except Exception as e:
+        print(f"Error getting statistics: {str(e)}")
+    
+    return stats
 
 
 @app.route('/create_user', methods=['GET', 'POST'])

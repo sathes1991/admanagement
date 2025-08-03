@@ -1,87 +1,195 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>User Details - {{ user.username }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light py-4">
+{% extends "base.html" %}
 
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>User Details: {{ user.username }}</h2>
-        <a href="{{ url_for('list_users') }}" class="btn btn-secondary">⬅ Back to Users</a>
-    </div>
+{% block title %}{{ user.username }} - AD Manager{% endblock %}
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- User Information Card -->
+            <div class="dashboard-card mb-4">
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div class="d-flex align-items-center">
+                        <div class="user-avatar me-3" style="width: 64px; height: 64px; font-size: 24px;">
+                            {{ user.username[0].upper() }}
+                        </div>
+                        <div>
+                            <h1 class="h3 mb-0">{{ user.display_name or user.username }}</h1>
+                            <p class="text-muted mb-0">@{{ user.username }}</p>
+                        </div>
+                    </div>
+                    <div>
+                        {% if user.enabled %}
+                            <span class="badge bg-success-soft text-success px-3 py-2">
+                                <i class="fas fa-check-circle"></i> Active
+                            </span>
+                        {% else %}
+                            <span class="badge bg-danger-soft text-danger px-3 py-2">
+                                <i class="fas fa-times-circle"></i> Disabled
+                            </span>
+                        {% endif %}
+                        {% if user.locked %}
+                            <span class="badge bg-warning-soft text-warning px-3 py-2 ms-2">
+                                <i class="fas fa-lock"></i> Locked
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <h5 class="card-title">Account Information</h5>
-            <ul class="list-group list-group-flush">
-                <li class="list-group-item"><strong>Username:</strong> {{ user.username }}</li>
-                <li class="list-group-item"><strong>Display Name:</strong> {{ user.display_name }}</li>
-                <li class="list-group-item"><strong>Email:</strong> {{ user.email }}</li>
-                <li class="list-group-item"><strong>UID Number:</strong> {{ user.uid_number }}</li>
-                <li class="list-group-item"><strong>GID Number:</strong> {{ user.gid_number }}</li>
-                <li class="list-group-item"><strong>Account Status:</strong> 
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box me-3">
+                                <i class="fas fa-envelope text-primary"></i>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block">Email Address</small>
+                                <strong>{{ user.email or 'Not set' }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box me-3">
+                                <i class="fas fa-hashtag text-info"></i>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block">UID Number</small>
+                                <strong>{{ user.uid_number or 'Not set' }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box me-3">
+                                <i class="fas fa-users text-success"></i>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block">GID Number</small>
+                                <strong>{{ user.gid_number or 'Not set' }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="icon-box me-3">
+                                <i class="fas fa-desktop text-warning"></i>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block">Allowed Computers</small>
+                                <strong>{{ user.allowed_computers or 'Any computer' }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions Card -->
+            <div class="dashboard-card">
+                <h5 class="mb-3">Quick Actions</h5>
+                <div class="row g-2">
+                    <div class="col-6 col-md-4">
+                        <a href="{{ url_for('edit_user', username=user.username) }}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-edit"></i> Edit User
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <a href="{{ url_for('reset_password', username=user.username) }}" class="btn btn-outline-warning w-100">
+                            <i class="fas fa-key"></i> Reset Password
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <a href="{{ url_for('set_logon_to', username=user.username) }}" class="btn btn-outline-secondary w-100">
+                            <i class="fas fa-desktop"></i> Set Logon To
+                        </a>
+                    </div>
+                    {% if user.locked %}
+                    <div class="col-6 col-md-4">
+                        <form method="POST" action="{{ url_for('unlock_account', username=user.username) }}" class="d-inline w-100">
+                            <button type="submit" class="btn btn-outline-info w-100">
+                                <i class="fas fa-unlock"></i> Unlock Account
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
                     {% if user.enabled %}
-                        <span class="badge bg-success">Enabled</span>
+                    <div class="col-6 col-md-4">
+                        <form method="POST" action="{{ url_for('disable_user', username=user.username) }}" class="d-inline w-100">
+                            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Are you sure you want to disable this user?');">
+                                <i class="fas fa-user-slash"></i> Disable User
+                            </button>
+                        </form>
+                    </div>
                     {% else %}
-                        <span class="badge bg-danger">Disabled</span>
+                    <div class="col-6 col-md-4">
+                        <form method="POST" action="{{ url_for('enable_user', username=user.username) }}" class="d-inline w-100">
+                            <button type="submit" class="btn btn-outline-success w-100">
+                                <i class="fas fa-user-check"></i> Enable User
+                            </button>
+                        </form>
+                    </div>
                     {% endif %}
-                </li>
-                <li class="list-group-item">
-                    <strong>Allowed Computers (Logon To):</strong>
-                    {% if user.allowed_computers %}
-                        {{ user.allowed_computers }}
-                    {% else %}
-                        <span class="text-muted">Any</span>
-                    {% endif %}
-                    <a href="{{ url_for('set_logon_to', username=user.username) }}" class="btn btn-sm btn-outline-dark float-end">
-                        ✏️ Edit
-                    </a>
-                </li>
-            </ul>
+                    <div class="col-6 col-md-4">
+                        <form method="POST" action="{{ url_for('delete_user', username=user.username) }}" class="d-inline w-100" 
+                              onsubmit="return confirm('Are you sure you want to permanently delete this user?');">
+                            <button type="submit" class="btn btn-danger w-100">
+                                <i class="fas fa-trash"></i> Delete User
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
 
-    <div class="mt-4 d-flex gap-2 flex-wrap">
-        <form action="{{ url_for('reset_password', username=user.username) }}" method="get" class="d-inline">
-            <button type="submit" class="btn btn-outline-warning btn-sm">🔒 Reset Password</button>
-        </form>
-
-        <form method="POST" action="{{ url_for('unlock_account', username=user.username) }}">
-            <button type="submit" class="btn btn-info">🔓 Unlock Account</button>
-        </form>
-
-        {% if user.enabled %}
-        <form method="POST" action="{{ url_for('disable_user', username=user.username) }}">
-            <button type="submit" class="btn btn-outline-danger">🚫 Disable Account</button>
-        </form>
-        {% else %}
-        <form method="POST" action="{{ url_for('enable_user', username=user.username) }}">
-            <button type="submit" class="btn btn-success">✅ Enable Account</button>
-        </form>
-        {% endif %}
-
-        <a href="{{ url_for('edit_user', username=user.username) }}" class="btn btn-primary">✏️ Edit User</a>
-
-        <form method="POST" action="{{ url_for('delete_user', username=user.username) }}" onsubmit="return confirm('Are you sure you want to delete this user?');">
-            <button type="submit" class="btn btn-danger">🗑️ Delete User</button>
-        </form>
+        <div class="col-lg-4">
+            <!-- Additional Information Card -->
+            <div class="dashboard-card">
+                <h5 class="mb-3">Additional Information</h5>
+                <div class="info-item mb-3">
+                    <small class="text-muted d-block mb-1">User Principal Name</small>
+                    <code>{{ user.username }}@{{ session.get('domain', 'domain.com') }}</code>
+                </div>
+                <div class="info-item mb-3">
+                    <small class="text-muted d-block mb-1">Distinguished Name</small>
+                    <code style="word-break: break-all;">CN={{ user.username }},OU=LinuxUsers,DC=vvs,DC=com</code>
+                </div>
+                <div class="info-item">
+                    <small class="text-muted d-block mb-1">Home Directory</small>
+                    <code>/home/users/{{ user.username }}</code>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+<style>
+.icon-box {
+    width: 40px;
+    height: 40px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bg-success-soft {
+    background-color: rgba(40, 167, 69, 0.1) !important;
+}
+
+.bg-danger-soft {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+.bg-warning-soft {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.info-item code {
+    font-size: 0.85rem;
+}
+</style>
+{% endblock %}
