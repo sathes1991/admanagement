@@ -248,14 +248,16 @@ def list_users():
 
         # Only search in LinuxUsers OU
         conn.search('OU=LinuxUsers,DC=vvs,DC=com', '(objectClass=user)', SUBTREE,
-                    attributes=['sAMAccountName', 'displayName', 'mail', 'uidNumber'])
+                    attributes=['sAMAccountName', 'displayName', 'mail', 'uidNumber', 'userAccountControl'])
 
         for entry in conn.entries:
+            uac = int(entry.userAccountControl.value) if 'userAccountControl' in entry else 512
             users.append({
                 'username': entry.sAMAccountName.value,
                 'name': entry.displayName.value,
                 'email': entry.mail.value if 'mail' in entry else '',
-                'uid': entry.uidNumber.value if 'uidNumber' in entry else ''
+                'uid': entry.uidNumber.value if 'uidNumber' in entry else '',
+                'enabled': not (uac & 2)  # Check if account is enabled
             })
 
     except Exception as e:

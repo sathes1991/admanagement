@@ -1,59 +1,192 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Add User to AD Group</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+{% extends "base.html" %}
 
-<div class="container mt-5">
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h4 class="mb-0">Add User to Active Directory Group</h4>
-        </div>
-        <div class="card-body">
+{% block title %}Add to Group - AD Manager{% endblock %}
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                  </div>
-                {% endfor %}
-              {% endif %}
-            {% endwith %}
+{% block extra_head %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
 
-            <form method="POST">
-                <div class="mb-3">
-                    <label for="user" class="form-label">Select User</label>
-                    <select name="user" id="user" class="form-select" required>
-                        <option value="">-- Choose a user --</option>
-                        {% for user in users %}
-                        <option value="{{ user }}">{{ user }}</option>
-                        {% endfor %}
-                    </select>
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="dashboard-card">
+                <div class="d-flex align-items-center mb-4">
+                    <div class="card-icon me-3" style="background: rgba(40, 167, 69, 0.1); color: var(--success-color);">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <div>
+                        <h1 class="h3 mb-0">Add User to Group</h1>
+                        <p class="text-muted mb-0">Assign users to Active Directory groups</p>
+                    </div>
                 </div>
 
-                <div class="mb-3">
-                    <label for="group" class="form-label">Select Group</label>
-                    <select name="group" id="group" class="form-select" required>
-                        <option value="">-- Choose a group --</option>
-                        {% for group in groups %}
-                        <option value="{{ group }}">{{ group }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                <form method="POST" id="addToGroupForm">
+                    <div class="row g-4">
+                        <!-- User Selection -->
+                        <div class="col-md-6">
+                            <label for="user" class="form-label">
+                                <i class="fas fa-user"></i> Select User <span class="text-danger">*</span>
+                            </label>
+                            <select name="user" id="user" class="form-select" required>
+                                <option value="">Choose a user...</option>
+                                {% for user in users %}
+                                <option value="{{ user }}">{{ user }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Search by typing the username</small>
+                        </div>
 
-                <button type="submit" class="btn btn-success">Add to Group</button>
-                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary ms-2">Back to Dashboard</a>
-            </form>
+                        <!-- Group Selection -->
+                        <div class="col-md-6">
+                            <label for="group" class="form-label">
+                                <i class="fas fa-users"></i> Select Group <span class="text-danger">*</span>
+                            </label>
+                            <select name="group" id="group" class="form-select" required>
+                                <option value="">Choose a group...</option>
+                                {% for group in groups %}
+                                <option value="{{ group }}">{{ group }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Choose the target group</small>
+                        </div>
+                    </div>
 
+                    <!-- Preview Section -->
+                    <div class="preview-section mt-4" style="display: none;">
+                        <h6 class="text-muted mb-3"><i class="fas fa-eye"></i> Preview</h6>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <span id="previewText">Select both user and group to see preview</span>
+                        </div>
+                    </div>
+
+                    <!-- Current Group Memberships -->
+                    <div class="current-groups-section mt-4" style="display: none;">
+                        <h6 class="text-muted mb-3"><i class="fas fa-users-cog"></i> Current Group Memberships</h6>
+                        <div id="currentGroupsList" class="current-groups-grid">
+                            <!-- Groups will be loaded here via JavaScript -->
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('group_members') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </a>
+                        <button type="submit" class="btn btn-modern btn-modern-primary" disabled>
+                            <i class="fas fa-plus-circle"></i> Add to Group
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+<style>
+.preview-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.current-groups-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.group-badge {
+    display: inline-flex;
+    align-items: center;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    padding: 5px 15px;
+    font-size: 14px;
+}
+
+.group-badge.existing {
+    background: #e7f3ff;
+    border-color: #0066cc;
+    color: #0066cc;
+}
+
+.select2-container--bootstrap-5 .select2-selection {
+    min-height: calc(1.5em + 0.75rem + 2px);
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize Select2
+    $('#user, #group').select2({
+        theme: 'bootstrap-5',
+        width: '100%'
+    });
+
+    // Enable/disable submit button
+    function updateSubmitButton() {
+        const user = $('#user').val();
+        const group = $('#group').val();
+        const submitBtn = $('button[type="submit"]');
+        
+        if (user && group) {
+            submitBtn.prop('disabled', false);
+            updatePreview(user, group);
+        } else {
+            submitBtn.prop('disabled', true);
+            $('.preview-section').hide();
+        }
+    }
+
+    // Update preview
+    function updatePreview(user, group) {
+        $('.preview-section').show();
+        $('#previewText').html(`User <strong>${user}</strong> will be added to group <strong>${group}</strong>`);
+    }
+
+    // Mock function to show current groups (in real app, this would be an AJAX call)
+    function loadUserGroups(username) {
+        if (username) {
+            $('.current-groups-section').show();
+            // This is mock data - in real implementation, fetch from server
+            const mockGroups = ['Domain Users', 'LinuxAdmins'];
+            let html = '';
+            mockGroups.forEach(group => {
+                html += `<span class="group-badge existing"><i class="fas fa-users me-2"></i>${group}</span>`;
+            });
+            $('#currentGroupsList').html(html);
+        } else {
+            $('.current-groups-section').hide();
+        }
+    }
+
+    // Event handlers
+    $('#user, #group').on('change', updateSubmitButton);
+    $('#user').on('change', function() {
+        loadUserGroups($(this).val());
+    });
+
+    // Form validation
+    $('#addToGroupForm').on('submit', function(e) {
+        const user = $('#user').val();
+        const group = $('#group').val();
+        
+        if (!user || !group) {
+            e.preventDefault();
+            alert('Please select both user and group');
+        }
+    });
+});
+</script>
+{% endblock %}

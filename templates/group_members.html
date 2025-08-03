@@ -38,12 +38,12 @@
                                         <div>
                                             <h5 class="mb-0">{{ group }}</h5>
                                             <small class="text-muted">
-                                                <i class="fas fa-user"></i> {{ members|length }} member{{ 's' if members|length != 1 else '' }}
+                                                <i class="fas fa-user"></i> {{ members|length if members else 0 }} member{{ 's' if members|length != 1 else '' }}
                                             </small>
                                         </div>
                                     </div>
                                     <span class="badge bg-success-soft text-success px-3 py-2">
-                                        {{ members|length }}
+                                        {{ members|length if members else 0 }}
                                     </span>
                                 </div>
                             </button>
@@ -52,14 +52,15 @@
                              class="accordion-collapse collapse {% if loop.first %}show{% endif %}" 
                              data-bs-parent="#groupAccordion">
                             <div class="accordion-body bg-light">
-                                {% if members %}
+                                {% if members and members|length > 0 %}
                                     <div class="row g-3">
                                         {% for member in members %}
+                                        {% if member %}
                                         <div class="col-md-6 col-lg-4">
                                             <div class="member-card p-3 bg-white rounded shadow-sm">
                                                 <div class="d-flex align-items-center">
                                                     <div class="user-avatar me-3" style="width: 40px; height: 40px; font-size: 16px;">
-                                                        {{ member[0].upper() }}
+                                                        {{ member[0].upper() if member else 'U' }}
                                                     </div>
                                                     <div>
                                                         <h6 class="mb-0">{{ member }}</h6>
@@ -75,6 +76,7 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        {% endif %}
                                         {% endfor %}
                                     </div>
                                 {% else %}
@@ -109,6 +111,7 @@
     </div>
 
     <!-- Summary Card -->
+    {% if group_info %}
     <div class="row mt-4">
         <div class="col-lg-12">
             <div class="dashboard-card">
@@ -116,25 +119,40 @@
                 <div class="row text-center">
                     <div class="col-md-3">
                         <div class="stat-box">
-                            <h3 class="text-primary">{{ group_info|length }}</h3>
+                            <h3 class="text-primary">{{ group_info|length if group_info else 0 }}</h3>
                             <p class="text-muted mb-0">Total Groups</p>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="stat-box">
-                            <h3 class="text-success">{{ group_info.values()|map('length')|sum }}</h3>
+                            {% set total_members = 0 %}
+                            {% for members in group_info.values() if members %}
+                                {% set total_members = total_members + members|length %}
+                            {% endfor %}
+                            <h3 class="text-success">{{ total_members }}</h3>
                             <p class="text-muted mb-0">Total Memberships</p>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="stat-box">
-                            <h3 class="text-info">{{ group_info.values()|select|map('length')|max(default=0) }}</h3>
+                            {% set max_size = 0 %}
+                            {% for members in group_info.values() if members %}
+                                {% if members|length > max_size %}
+                                    {% set max_size = members|length %}
+                                {% endif %}
+                            {% endfor %}
+                            <h3 class="text-info">{{ max_size }}</h3>
                             <p class="text-muted mb-0">Largest Group Size</p>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="stat-box">
-                            <h3 class="text-warning">{{ (group_info.values()|map('length')|select|list|length > 0) and (group_info.values()|map('length')|sum / group_info.values()|map('length')|select|list|length)|round(1) or 0 }}</h3>
+                            {% if group_info|length > 0 and total_members > 0 %}
+                                {% set avg = (total_members / group_info|length)|round(1) %}
+                            {% else %}
+                                {% set avg = 0 %}
+                            {% endif %}
+                            <h3 class="text-warning">{{ avg }}</h3>
                             <p class="text-muted mb-0">Avg. Group Size</p>
                         </div>
                     </div>
@@ -142,6 +160,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <style>
