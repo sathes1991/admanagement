@@ -6,6 +6,13 @@
 <div class="container-fluid">
     <h1 class="h3 mb-4 text-gray-800">Dashboard</h1>
     
+    {% if not is_admin %}
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle"></i> <strong>View-Only Mode:</strong> You are logged in with view-only permissions. You can browse and view information but cannot make any changes. Only the Administrator user can modify AD objects.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+    
     <!-- Statistics Cards Row -->
     <div class="row mb-4">
         <div class="col-xl-3 col-md-6 mb-4">

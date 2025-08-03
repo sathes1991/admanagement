@@ -8,6 +8,7 @@
         <h1 class="h3 mb-0 text-gray-800">
             <i class="fas fa-user-friends"></i> Group Membership Overview
         </h1>
+        {% if is_admin %}
         <div class="d-flex gap-2">
             <a href="{{ url_for('add_to_group') }}" class="btn btn-outline-success">
                 <i class="fas fa-user-plus"></i> Add Members
@@ -16,6 +17,7 @@
                 <i class="fas fa-user-minus"></i> Remove Members
             </a>
         </div>
+        {% endif %}
     </div>
 
     <div class="row">
@@ -85,9 +87,11 @@
                                             <i class="fas fa-users text-muted" style="font-size: 24px;"></i>
                                         </div>
                                         <p class="text-muted mb-0">No members in this group</p>
+                                        {% if is_admin %}
                                         <a href="{{ url_for('add_to_group') }}" class="btn btn-sm btn-success mt-3">
                                             <i class="fas fa-user-plus"></i> Add Members
                                         </a>
+                                        {% endif %}
                                     </div>
                                 {% endif %}
                             </div>

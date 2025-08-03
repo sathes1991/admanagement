@@ -30,6 +30,16 @@ def login():
     return render_template('login.html')
 
 
+def is_admin():
+    """Check if the current user is the Administrator user"""
+    if 'username' not in session:
+        return False
+    
+    # Only the Administrator user has full access
+    # All other users (including members of Administrators group) have view-only access
+    return session['username'].lower() == 'administrator'
+
+
 @app.route('/dashboard')
 def dashboard():
     if 'username' not in session:
@@ -37,7 +47,9 @@ def dashboard():
     
     # Get statistics for dashboard
     stats = get_ad_statistics()
-    return render_template('dashboard.html', stats=stats)
+    # Check if user is admin
+    session['is_admin'] = is_admin()
+    return render_template('dashboard.html', stats=stats, is_admin=session['is_admin'])
 
 
 def get_ad_statistics():
@@ -97,6 +109,11 @@ def get_ad_statistics():
 def create_user():
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can create users.', 'danger')
+        return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
         new_username = request.form['username'].strip()
@@ -127,13 +144,13 @@ def create_user():
             conn.search('OU=LinuxUsers,DC=vvs,DC=com', f'(sAMAccountName={new_username})', attributes=['sAMAccountName'])
             if conn.entries:
                 flash(f'❌ Username "{new_username}" already exists.', 'danger')
-                return render_template('create_user.html')
+                return render_template('create_user.html', is_admin=session.get('is_admin', False))
 
             # 🔍 Check if uidNumber already exists
             conn.search('OU=LinuxUsers,DC=vvs,DC=com', f'(uidNumber={uid_number})', attributes=['uidNumber'])
             if conn.entries:
                 flash(f'❌ uidNumber "{uid_number}" is already used.', 'danger')
-                return render_template('create_user.html')
+                return render_template('create_user.html', is_admin=session.get('is_admin', False))
 
             # ✅ Add user
             conn.add(user_dn, ['top', 'person', 'organizationalPerson', 'user'], {
@@ -160,13 +177,18 @@ def create_user():
         except Exception as e:
             flash(f'❌ Error creating user: {str(e)}', 'danger')
 
-    return render_template('create_user.html')
+    return render_template('create_user.html', is_admin=session.get('is_admin', False))
 
 
 @app.route('/create_group', methods=['GET', 'POST'])
 def create_group():
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can create groups.', 'danger')
+        return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
         group_name = request.form['group_name'].strip()
@@ -194,14 +216,14 @@ def create_group():
             conn.search('OU=LinuxGroups,DC=vvs,DC=com', f'(sAMAccountName={group_name})', attributes=['sAMAccountName'])
             if conn.entries:
                 flash(f'❌ Group "{group_name}" already exists.', 'danger')
-                return render_template('create_group.html')
+                return render_template('create_group.html', is_admin=session.get('is_admin', False))
 
             # 🔍 Check if gidNumber already exists
             if gid_number:
                 conn.search('OU=LinuxGroups,DC=vvs,DC=com', f'(gidNumber={gid_number})', attributes=['gidNumber'])
                 if conn.entries:
                     flash(f'❌ gidNumber "{gid_number}" is already used.', 'danger')
-                    return render_template('create_group.html')
+                    return render_template('create_group.html', is_admin=session.get('is_admin', False))
 
             # ✅ Add group
             attributes = {
@@ -227,7 +249,7 @@ def create_group():
         except Exception as e:
             flash(f'❌ Error creating group: {str(e)}', 'danger')
 
-    return render_template('create_group.html')
+    return render_template('create_group.html', is_admin=session.get('is_admin', False))
 
 
 
@@ -263,12 +285,17 @@ def list_users():
     except Exception as e:
         flash(f"❌ Error: {str(e)}", 'danger')
 
-    return render_template('users.html', users=users)
+    return render_template('users.html', users=users, is_admin=session.get('is_admin', False))
 
 @app.route('/user/<username>/reset_password', methods=['GET', 'POST'])
 def reset_password(username):
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can reset passwords.', 'danger')
+        return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
         new_password = request.form['new_password']
@@ -303,13 +330,18 @@ def reset_password(username):
 
         return redirect(url_for('list_users'))
 
-    return render_template('reset_password.html', username=username)
+    return render_template('reset_password.html', username=username, is_admin=session.get('is_admin', False))
 
 
 @app.route('/user/<username>/edit', methods=['GET', 'POST'])
 def edit_user(username):
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can edit users.', 'danger')
+        return redirect(url_for('dashboard'))
 
     try:
         tls_config = Tls(validate=ssl.CERT_NONE)
@@ -365,7 +397,7 @@ def edit_user(username):
             'gid_number': str(user_entry.gidNumber) if 'gidNumber' in user_entry else ''
         }
 
-        return render_template('edit_user.html', username=username, user=user)
+        return render_template('edit_user.html', username=username, user=user, is_admin=session.get('is_admin', False))
 
     except Exception as e:
         import traceback
@@ -430,7 +462,7 @@ def user_details(username):
             'allowed_computers': allowed_computers  # ✅
         }
 
-        return render_template('user_details.html', user=user)
+        return render_template('user_details.html', user=user, is_admin=session.get('is_admin', False))
 
     except Exception as e:
         import traceback
@@ -442,6 +474,11 @@ def user_details(username):
 def unlock_account(username):
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can unlock accounts.', 'danger')
+        return redirect(url_for('dashboard'))
 
     try:
         tls_config = Tls(validate=ssl.CERT_NONE)
@@ -484,6 +521,11 @@ def unlock_account(username):
 def disable_user(username):
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can disable users.', 'danger')
+        return redirect(url_for('dashboard'))
 
     try:
         tls_config = Tls(validate=ssl.CERT_NONE)
@@ -526,6 +568,11 @@ def disable_user(username):
 def enable_user(username):
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can enable users.', 'danger')
+        return redirect(url_for('dashboard'))
 
     try:
         tls_config = Tls(validate=ssl.CERT_NONE)
@@ -568,6 +615,11 @@ def enable_user(username):
 def delete_user(username):
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can delete users.', 'danger')
+        return redirect(url_for('dashboard'))
 
     user_dn = f"CN={username},OU=LinuxUsers,{Config.BASE_DN}"
 
@@ -623,7 +675,7 @@ def list_groups():
     except Exception as e:
         flash(f"❌ Error: {str(e)}", 'danger')
 
-    return render_template('groups.html', groups=groups)
+    return render_template('groups.html', groups=groups, is_admin=session.get('is_admin', False))
 
 @app.route('/group_members')
 def group_members():
@@ -659,13 +711,18 @@ def group_members():
     except Exception as e:
         flash(f"❌ Error fetching group members: {str(e)}", "danger")
 
-    return render_template('group_members.html', group_info=group_info)
+    return render_template('group_members.html', group_info=group_info, is_admin=session.get('is_admin', False))
 
 
 @app.route('/add_to_group', methods=['GET', 'POST'])
 def add_to_group():
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can add users to groups.', 'danger')
+        return redirect(url_for('dashboard'))
 
     users = []
     groups = []
@@ -702,12 +759,17 @@ def add_to_group():
     except Exception as e:
         flash(f"❌ Error: {str(e)}", 'danger')
 
-    return render_template('add_to_group.html', users=users, groups=groups)
+    return render_template('add_to_group.html', users=users, groups=groups, is_admin=session.get('is_admin', False))
 
 @app.route('/remove_from_group', methods=['GET', 'POST'])
 def remove_from_group():
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can remove users from groups.', 'danger')
+        return redirect(url_for('dashboard'))
 
     users = []
     groups = []
@@ -761,7 +823,7 @@ def remove_from_group():
     except Exception as e:
         flash(f"❌ Error: {str(e)}", 'danger')
 
-    return render_template('remove_from_group.html', users=users, groups=groups)
+    return render_template('remove_from_group.html', users=users, groups=groups, is_admin=session.get('is_admin', False))
 
 
 @app.route('/computers')
@@ -798,7 +860,7 @@ def list_computers():
             }
             computers.append(computer)
 
-        return render_template('computers.html', computers=computers)
+        return render_template('computers.html', computers=computers, is_admin=session.get('is_admin', False))
 
     except Exception as e:
         flash(f"Error retrieving computer accounts: {str(e)}", 'danger')
@@ -808,6 +870,11 @@ def list_computers():
 def set_logon_to(username):
     if 'username' not in session:
         return redirect(url_for('login'))
+    
+    # Check if user is admin
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can set logon restrictions.', 'danger')
+        return redirect(url_for('dashboard'))
 
     user_dn = f"CN={username},OU=LinuxUsers,{Config.BASE_DN}"
 
@@ -845,7 +912,7 @@ def set_logon_to(username):
 
             return redirect(url_for('user_details', username=username))
 
-        return render_template('logon_to.html', username=username, computers=all_computers, selected=selected)
+        return render_template('logon_to.html', username=username, computers=all_computers, selected=selected, is_admin=session.get('is_admin', False))
 
     except Exception as e:
         flash(f"Error: {str(e)}", 'danger')
@@ -900,7 +967,7 @@ def search():
     except Exception as e:
         flash(f"❌ Error: {str(e)}", 'danger')
 
-    return render_template('search.html', result=result)
+    return render_template('search.html', result=result, is_admin=session.get('is_admin', False))
 
 
 @app.route('/logout')

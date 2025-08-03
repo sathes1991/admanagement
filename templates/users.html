@@ -14,9 +14,11 @@
         <h1 class="h3 mb-0 text-gray-800">
             <i class="fas fa-users"></i> AD Users
         </h1>
+        {% if is_admin %}
         <a href="{{ url_for('create_user') }}" class="btn btn-modern btn-modern-primary">
             <i class="fas fa-user-plus"></i> Create New User
         </a>
+        {% endif %}
     </div>
     
     <div class="table-container">

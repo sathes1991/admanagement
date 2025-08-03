@@ -14,9 +14,11 @@
         <h1 class="h3 mb-0 text-gray-800">
             <i class="fas fa-users-cog"></i> AD Groups
         </h1>
+        {% if is_admin %}
         <a href="{{ url_for('create_group') }}" class="btn btn-modern btn-modern-primary">
             <i class="fas fa-plus-circle"></i> Create New Group
         </a>
+        {% endif %}
     </div>
     
     <div class="table-container">
