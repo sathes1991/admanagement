@@ -551,12 +551,24 @@ def disable_user(username):
 
         user_dn = conn.entries[0].entry_dn
 
-        conn.modify(user_dn, {'userAccountControl': [(MODIFY_REPLACE, [514])]})  # 514 = ACCOUNTDISABLE
+        # Get current userAccountControl value for debugging
+        conn.search(user_dn, '(objectClass=*)', attributes=['userAccountControl'])
+        current_uac = int(conn.entries[0].userAccountControl.value) if conn.entries else 512
+        
+        # Disable the account (set bit 2)
+        conn.modify(user_dn, {'userAccountControl': [(MODIFY_REPLACE, [514])]})  # 514 = NORMAL_ACCOUNT + ACCOUNTDISABLE
 
         if conn.result['result'] == 0:
-            flash(f"✅ User '{username}' disabled successfully.", 'success')
+            # Verify the change was applied
+            conn.search(user_dn, '(objectClass=*)', attributes=['userAccountControl'])
+            new_uac = int(conn.entries[0].userAccountControl.value) if conn.entries else 512
+            
+            if new_uac & 2:  # Check if ACCOUNTDISABLE bit is set
+                flash(f"✅ User '{username}' disabled successfully. (UAC: {current_uac} → {new_uac})", 'success')
+            else:
+                flash(f"⚠️ User '{username}' disable may have failed. UAC: {current_uac} → {new_uac}", 'warning')
         else:
-            flash(f"❌ Failed to disable user: {conn.result['message']}", 'danger')
+            flash(f"❌ Failed to disable user: {conn.result['message']} (Code: {conn.result['result']})", 'danger')
 
     except Exception as e:
         flash(f"❌ Error disabling user: {str(e)}", 'danger')
@@ -901,9 +913,14 @@ def set_logon_to(username):
 
         if request.method == 'POST':
             selected_computers = request.form.getlist('computers')  # list of hostnames
-            new_value = ','.join(selected_computers)
-
-            conn.modify(user_dn, {'userWorkstations': [(MODIFY_REPLACE, [new_value])]})
+            
+            if selected_computers:
+                # If computers are selected, update the attribute
+                new_value = ','.join(selected_computers)
+                conn.modify(user_dn, {'userWorkstations': [(MODIFY_REPLACE, [new_value])]})
+            else:
+                # If no computers selected, delete the attribute
+                conn.modify(user_dn, {'userWorkstations': [(MODIFY_DELETE, [])]})
 
             if conn.result['result'] == 0:
                 flash("✅ Logon Workstations updated.", 'success')
