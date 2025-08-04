@@ -59,6 +59,18 @@
                     </ul>
                 </li>
                 
+                <li class="{% if request.endpoint in ['list_ous', 'create_ou', 'move_object'] %}active{% endif %}">
+                    <a href="#ouSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                        <i class="fas fa-sitemap"></i> Organizational Units
+                    </a>
+                    <ul class="collapse list-unstyled" id="ouSubmenu">
+                        <li><a href="{{ url_for('list_ous') }}"><i class="fas fa-list"></i> View All OUs</a></li>
+                        {% if session.get('is_admin', False) %}
+                        <li><a href="{{ url_for('create_ou') }}"><i class="fas fa-plus-circle"></i> Create OU</a></li>
+                        {% endif %}
+                    </ul>
+                </li>
+                
                 <li class="{% if request.endpoint == 'list_computers' %}active{% endif %}">
                     <a href="{{ url_for('list_computers') }}">
                         <i class="fas fa-desktop"></i> Computers

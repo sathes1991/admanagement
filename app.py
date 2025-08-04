@@ -1,7 +1,7 @@
 # app.py
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
-from ldap3 import Server, Connection, ALL, NTLM, SUBTREE, MODIFY_ADD, MODIFY_REPLACE, MODIFY_DELETE, Tls
+from ldap3 import Server, Connection, ALL, NTLM, SUBTREE, LEVEL, MODIFY_ADD, MODIFY_REPLACE, MODIFY_DELETE, Tls
 from config import Config
 import ssl 
 import struct
@@ -980,11 +980,291 @@ def search():
                             users.append(conn.entries[0].sAMAccountName.value)
 
                 result = {'type': 'group', 'keyword': keyword, 'users': users}
+            
+            elif search_type == 'ou':
+                # Search for OUs by name
+                conn.search(Config.BASE_DN, f'(&(objectClass=organizationalUnit)(name=*{keyword}*))', 
+                           SUBTREE, attributes=['name', 'distinguishedName', 'description'])
+                
+                ous = []
+                for entry in conn.entries:
+                    ou_data = {
+                        'name': str(entry.name) if 'name' in entry else '',
+                        'dn': str(entry.distinguishedName) if 'distinguishedName' in entry else '',
+                        'description': str(entry.description) if 'description' in entry else ''
+                    }
+                    
+                    # Count users and groups in this OU
+                    ou_dn = ou_data['dn']
+                    conn.search(ou_dn, '(&(objectClass=user)(!(objectClass=computer)))', search_scope='LEVEL')
+                    ou_data['user_count'] = len(conn.entries)
+                    
+                    conn.search(ou_dn, '(objectClass=group)', search_scope='LEVEL')
+                    ou_data['group_count'] = len(conn.entries)
+                    
+                    ous.append(ou_data)
+                
+                result = {'type': 'ou', 'keyword': keyword, 'ous': ous}
 
     except Exception as e:
         flash(f"❌ Error: {str(e)}", 'danger')
 
     return render_template('search.html', result=result, is_admin=session.get('is_admin', False))
+
+
+# OU Management Routes
+@app.route('/ous')
+def list_ous():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    ous = []
+    try:
+        tls_config = Tls(validate=ssl.CERT_NONE)
+        server = Server(f"ldaps://{Config.LDAP_SERVER}", port=636, use_ssl=True, get_info=ALL, tls=tls_config)
+        conn = Connection(
+            server,
+            user=f"{Config.DOMAIN}\\{session['username']}",
+            password=session['password'],
+            authentication=NTLM,
+            auto_bind=True
+        )
+        
+        # Search for all OUs
+        conn.search(Config.BASE_DN, '(objectClass=organizationalUnit)', SUBTREE, 
+                   attributes=['name', 'distinguishedName', 'description'])
+        
+        for entry in conn.entries:
+            ou_name = str(entry.name) if 'name' in entry else ''
+            ou_dn = str(entry.distinguishedName) if 'distinguishedName' in entry else ''
+            description = str(entry.description) if 'description' in entry else ''
+            
+            # Count users and groups in this OU
+            user_count = 0
+            group_count = 0
+            
+            # Count users (search one level only to avoid counting nested OUs)
+            conn.search(ou_dn, '(&(objectClass=user)(!(objectClass=computer)))', search_scope='LEVEL')
+            user_count = len(conn.entries)
+            
+            # Count groups (search one level only)
+            conn.search(ou_dn, '(objectClass=group)', search_scope='LEVEL')
+            group_count = len(conn.entries)
+            
+            ous.append({
+                'name': ou_name,
+                'dn': ou_dn,
+                'description': description,
+                'user_count': user_count,
+                'group_count': group_count
+            })
+        
+        conn.unbind()
+        
+    except Exception as e:
+        flash(f"❌ Error loading OUs: {str(e)}", 'danger')
+    
+    return render_template('ous.html', ous=ous, is_admin=session.get('is_admin', False))
+
+
+@app.route('/create_ou', methods=['GET', 'POST'])
+def create_ou():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can create OUs.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        ou_name = request.form['ou_name']
+        parent_dn = request.form['parent_dn']
+        description = request.form.get('description', '')
+        
+        try:
+            tls_config = Tls(validate=ssl.CERT_NONE)
+            server = Server(f"ldaps://{Config.LDAP_SERVER}", port=636, use_ssl=True, get_info=ALL, tls=tls_config)
+            conn = Connection(
+                server,
+                user=f"{Config.DOMAIN}\\{session['username']}",
+                password=session['password'],
+                authentication=NTLM,
+                auto_bind=True
+            )
+            
+            # Create OU DN
+            ou_dn = f"OU={ou_name},{parent_dn}"
+            
+            # Create OU attributes
+            attributes = {
+                'objectClass': ['top', 'organizationalUnit'],
+                'ou': ou_name
+            }
+            
+            if description:
+                attributes['description'] = description
+            
+            # Add the OU
+            conn.add(ou_dn, attributes=attributes)
+            
+            if conn.result['result'] == 0:
+                flash(f"✅ OU '{ou_name}' created successfully.", 'success')
+                return redirect(url_for('list_ous'))
+            else:
+                flash(f"❌ Failed to create OU: {conn.result['message']}", 'danger')
+                
+        except Exception as e:
+            flash(f"❌ Error creating OU: {str(e)}", 'danger')
+    
+    # Get available parent OUs
+    parent_ous = []
+    try:
+        tls_config = Tls(validate=ssl.CERT_NONE)
+        server = Server(f"ldaps://{Config.LDAP_SERVER}", port=636, use_ssl=True, get_info=ALL, tls=tls_config)
+        conn = Connection(
+            server,
+            user=f"{Config.DOMAIN}\\{session['username']}",
+            password=session['password'],
+            authentication=NTLM,
+            auto_bind=True
+        )
+        
+        conn.search(Config.BASE_DN, '(|(objectClass=organizationalUnit)(objectClass=domain))', SUBTREE, 
+                   attributes=['name', 'distinguishedName'])
+        
+        for entry in conn.entries:
+            parent_ous.append({
+                'name': str(entry.name) if 'name' in entry else 'Domain Root',
+                'dn': str(entry.distinguishedName)
+            })
+            
+    except Exception as e:
+        flash(f"❌ Error loading parent OUs: {str(e)}", 'danger')
+    
+    return render_template('create_ou.html', parent_ous=parent_ous, is_admin=session.get('is_admin', False))
+
+
+@app.route('/ou/<path:ou_dn>/move_object', methods=['GET', 'POST'])
+def move_object(ou_dn):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can move objects.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        object_dn = request.form['object_dn']
+        target_ou = request.form['target_ou']
+        
+        try:
+            tls_config = Tls(validate=ssl.CERT_NONE)
+            server = Server(f"ldaps://{Config.LDAP_SERVER}", port=636, use_ssl=True, get_info=ALL, tls=tls_config)
+            conn = Connection(
+                server,
+                user=f"{Config.DOMAIN}\\{session['username']}",
+                password=session['password'],
+                authentication=NTLM,
+                auto_bind=True
+            )
+            
+            # Move the object
+            conn.modify_dn(object_dn, relative_dn=None, new_superior=target_ou)
+            
+            if conn.result['result'] == 0:
+                flash("✅ Object moved successfully.", 'success')
+            else:
+                flash(f"❌ Failed to move object: {conn.result['message']}", 'danger')
+                
+        except Exception as e:
+            flash(f"❌ Error moving object: {str(e)}", 'danger')
+    
+    # Get objects in current OU and available target OUs
+    objects = []
+    target_ous = []
+    
+    try:
+        tls_config = Tls(validate=ssl.CERT_NONE)
+        server = Server(f"ldaps://{Config.LDAP_SERVER}", port=636, use_ssl=True, get_info=ALL, tls=tls_config)
+        conn = Connection(
+            server,
+            user=f"{Config.DOMAIN}\\{session['username']}",
+            password=session['password'],
+            authentication=NTLM,
+            auto_bind=True
+        )
+        
+        # Get users and groups in current OU (one level only)
+        conn.search(ou_dn, '(|(objectClass=user)(objectClass=group))', 
+                   search_scope='LEVEL',
+                   attributes=['name', 'distinguishedName', 'objectClass'])
+        
+        for entry in conn.entries:
+            obj_type = 'User' if 'user' in [oc.lower() for oc in entry.objectClass.values] else 'Group'
+            objects.append({
+                'name': str(entry.name),
+                'dn': str(entry.distinguishedName),
+                'type': obj_type
+            })
+        
+        # Get available target OUs
+        conn.search(Config.BASE_DN, '(objectClass=organizationalUnit)', SUBTREE, 
+                   attributes=['name', 'distinguishedName'])
+        
+        for entry in conn.entries:
+            if str(entry.distinguishedName) != ou_dn:
+                target_ous.append({
+                    'name': str(entry.name),
+                    'dn': str(entry.distinguishedName)
+                })
+                
+    except Exception as e:
+        flash(f"❌ Error loading data: {str(e)}", 'danger')
+    
+    return render_template('move_object.html', ou_dn=ou_dn, objects=objects, 
+                         target_ous=target_ous, is_admin=session.get('is_admin', False))
+
+
+@app.route('/ou/<path:ou_dn>/delete', methods=['POST'])
+def delete_ou(ou_dn):
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    if not session.get('is_admin', False):
+        flash('❌ Access denied. Only administrators can delete OUs.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        tls_config = Tls(validate=ssl.CERT_NONE)
+        server = Server(f"ldaps://{Config.LDAP_SERVER}", port=636, use_ssl=True, get_info=ALL, tls=tls_config)
+        conn = Connection(
+            server,
+            user=f"{Config.DOMAIN}\\{session['username']}",
+            password=session['password'],
+            authentication=NTLM,
+            auto_bind=True
+        )
+        
+        # Check if OU is empty (check one level only)
+        conn.search(ou_dn, '(|(objectClass=user)(objectClass=group)(objectClass=organizationalUnit))', 
+                   search_scope='LEVEL')
+        
+        if len(conn.entries) > 0:
+            flash("❌ Cannot delete OU: It contains objects. Please move or delete all objects first.", 'danger')
+            return redirect(url_for('list_ous'))
+        
+        # Delete the OU
+        conn.delete(ou_dn)
+        
+        if conn.result['result'] == 0:
+            flash("✅ OU deleted successfully.", 'success')
+        else:
+            flash(f"❌ Failed to delete OU: {conn.result['message']}", 'danger')
+            
+    except Exception as e:
+        flash(f"❌ Error deleting OU: {str(e)}", 'danger')
+    
+    return redirect(url_for('list_ous'))
 
 
 @app.route('/logout')

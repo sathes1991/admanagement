@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create OU - AD Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">AD Manager</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a class="nav-link" href="{{ url_for('list_users') }}">Users</a>
+                <a class="nav-link" href="{{ url_for('list_groups') }}">Groups</a>
+                <a class="nav-link" href="{{ url_for('list_ous') }}">OUs</a>
+                <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="mb-0">Create New Organizational Unit</h4>
+                    </div>
+                    <div class="card-body">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ 'danger' if category == 'danger' else 'success' if category == 'success' else 'warning' if category == 'warning' else 'info' }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+
+                        <form method="POST">
+                            <div class="mb-3">
+                                <label for="ou_name" class="form-label">OU Name *</label>
+                                <input type="text" class="form-control" id="ou_name" name="ou_name" required
+                                       placeholder="e.g., Sales, IT, Marketing">
+                                <div class="form-text">Enter the name for the new organizational unit.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="parent_dn" class="form-label">Parent OU *</label>
+                                <select class="form-select" id="parent_dn" name="parent_dn" required>
+                                    <option value="">Select parent OU...</option>
+                                    {% for parent in parent_ous %}
+                                    <option value="{{ parent.dn }}">{{ parent.name }} - {{ parent.dn }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">Choose where to create this OU in the directory structure.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="description" class="form-label">Description</label>
+                                <textarea class="form-control" id="description" name="description" rows="3"
+                                          placeholder="Optional description for this OU"></textarea>
+                                <div class="form-text">Optional description to help identify the purpose of this OU.</div>
+                            </div>
+
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <a href="{{ url_for('list_ous') }}" class="btn btn-secondary me-md-2">Cancel</a>
+                                <button type="submit" class="btn btn-primary">Create OU</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h6 class="mb-0">OU Naming Guidelines</h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-unstyled mb-0">
+                            <li><i class="bi bi-check2 text-success"></i> Use descriptive names (Sales, IT, Marketing)</li>
+                            <li><i class="bi bi-check2 text-success"></i> Avoid special characters except hyphens and underscores</li>
+                            <li><i class="bi bi-check2 text-success"></i> Keep names concise but meaningful</li>
+                            <li><i class="bi bi-x text-danger"></i> Don't use spaces at the beginning or end</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+</body>
+</html>
